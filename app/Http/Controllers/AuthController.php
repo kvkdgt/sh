@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
@@ -28,19 +29,59 @@ class AuthController extends Controller
             'confirm_password.required' => 'The confirm password field is required.',
             'confirm_password.same' => 'The confirm password must match the password field.',
         ]);
-    
+
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
-    
+
         $user = User::create([
             'first_name' => $request->input('first_name'),
             'last_name' => $request->input('last_name'),
             'email' => $request->input('email'),
             'password' => bcrypt($request->input('password')),
         ]);
-    
+
         return response()->json(['message' => 'User added successfully', 'user' => $user], 200);
     }
-    
+
+    public function SignIn(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ], [
+            'email.required' => 'The email field is required.',
+            'email.email' => 'Please provide a valid email address.',
+            'password.required' => 'The password field is required.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $user = User::where('email', $request->input('email'))->first();
+        if (!$user || !password_verify($request->input('password'), $user->password)) {
+            return response()->json(['error' => 'The provided credentials are incorrect.'], 401);
+        }
+
+
+        if (Auth::loginUsingId($user->id)) {
+            $token = $user->createToken('AuthToken')->plainTextToken;
+
+            return response()->json(['message' => 'Logged in successfully', 'user' => $user, 'token' => $token], 200);
+        }
+
+        return response()->json(['error' => 'Could not log in.'], 401);
+    }
+
+    public function SignOut(Request $request)
+    {
+        // Auth::guard('web')->logout(); // For web-based authentication, change 'web' to your guard name if different
+        $user = Auth::user(); // Retrieve the authenticated user
+
+        // Auth::guard('web')->logout(); // For web-based authentication, change 'web' if different
+        // Invalidate the token or session data on the client-side if necessary
+
+        return response()->json(['message' => 'Logged out successfully', 'user' => $user], 200);
+    }
 }
