@@ -84,4 +84,43 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Logged out successfully', 'user' => $user], 200);
     }
+
+    public function ChangePassword(Request $request)
+    {
+
+        try {
+            $validator = Validator::make($request->all(), [
+                'email' => 'required|email',
+                'current_password' => 'required|string',
+                'password' => 'required|string|min:6',
+                'confirm_password' => 'required|string|same:password',
+            ], [
+                'email.required' => 'The email field is required.',
+                'email.email' => 'Please provide a valid email address.',
+                'current_password.required' => 'The current password field is required.',
+                'password.required' => 'The new password field is required.',
+                'password.min' => 'The new password must be at least 6 characters.',
+                'confirm_password.required' => 'The confirm password field is required.',
+                'confirm_password.same' => 'The confirm password must match the new password.',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+
+            $user = User::where('email', $request->input('email'))->first();
+
+            if (!$user || !password_verify($request->input('current_password'), $user->password)) {
+                return response()->json(['error' => 'The provided credentials are incorrect.'], 401);
+            }
+
+            // Change the user's password
+            $user->password = bcrypt($request->input('password'));
+            $user->save();
+
+            return response()->json(['message' => 'Password updated successfully', 'user' => $user], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 }
